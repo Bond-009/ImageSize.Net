@@ -1,9 +1,13 @@
 ﻿using System;
 using System.IO;
+using System.Globalization;
 using System.Linq;
 
 namespace ImageSize
 {
+    /// <summary>
+    /// Static class.
+    /// </summary>
     public static class Image
     {
         // All magic byte arrays are missing their first byte
@@ -14,15 +18,10 @@ namespace ImageSize
         /// <summary>
         /// Retrieves the size of the image without reading the entire file.
         /// </summary>
-        /// <param name="path">path to the image</param>
-        /// <returns>The width and height of the image</returns>
+        /// <param name="path">path to the image.</param>
+        /// <returns>The width and height of the image.</returns>
         public static (int width, int height) GetSize(string path)
         {
-            if (string.IsNullOrEmpty(path))
-            {
-                throw new ArgumentNullException(nameof(path));
-            }
-
             using (Stream str = File.OpenRead(path))
             {
                 return GetSize(str);
@@ -32,15 +31,10 @@ namespace ImageSize
         /// <summary>
         /// Retrieves the size of the image without reading the entire file.
         /// </summary>
-        /// <param name="stream">IO stream of the image</param>
-        /// <returns>The width and height of the image</returns>
+        /// <param name="stream">IO stream of the image.</param>
+        /// <returns>The width and height of the image.</returns>
         public static (int width, int height) GetSize(Stream stream)
         {
-            if (stream == null)
-            {
-                throw new ArgumentNullException(nameof(stream));
-            }
-
             using (BinaryReader reader = new BinaryReader(stream))
             {
                 return GetSize(reader);
@@ -50,16 +44,11 @@ namespace ImageSize
         /// <summary>
         /// Retrieves the size of the image without reading the entire file.
         /// </summary>
-        /// <param name="reader">BinaryReader for the IO stream of the image</param>
-        /// <returns>The width and height of the image</returns>
+        /// <param name="reader">BinaryReader for the IO stream of the image.</param>
+        /// <returns>The width and height of the image.</returns>
         public static (int width, int height) GetSize(BinaryReader reader)
         {
-            if (reader == null)
-            {
-                throw new ArgumentNullException(nameof(reader));
-            }
-
-            switch(reader.ReadByte())
+            switch (reader.ReadByte())
             {
                 // Magic BMP bytes:
                 // Hex   | String | Note
@@ -77,12 +66,13 @@ namespace ImageSize
                     {
                         throw new NotSupportedException("OS/2 struct bitmap array are not supported");
                     }
+
                     break;
                 }
                 // Magic GIF bytes:
                 // 47 49 46 38 37 61
                 // 47 49 46 38 39 61
-                case (0x47):
+                case 0x47:
                 {
                     byte[] bytes = reader.ReadBytes(3);
                     if (bytes.SequenceEqual(GIF_MAGIC_START))
@@ -94,6 +84,7 @@ namespace ImageSize
                             return GetGifSize(reader);
                         }
                     }
+
                     break;
                 }
                 // Magic PNG bytes: 89 50 4e 47 0d 0a 1a 0a
@@ -104,6 +95,7 @@ namespace ImageSize
                     {
                         return GetPngSize(reader);
                     }
+
                     break;
                 }
                 // Magic MNG bytes: 8a 4d 4e 47 0d 0a 1a 0a
@@ -114,6 +106,7 @@ namespace ImageSize
                     {
                         return GetPngSize(reader);
                     }
+
                     break;
                 }
                 // Magic JPEG bytes: ff d8 ff
@@ -124,10 +117,12 @@ namespace ImageSize
                     {
                         return GetJpegSize(reader);
                     }
+
                     break;
                 }
                 default: break;
             }
+
             throw new NotSupportedException();
         }
 
@@ -172,7 +167,12 @@ namespace ImageSize
                 int height = reader.ReadInt32();
                 return (width, height);
             }
-            throw new Exception($"Unsupported info header size ({infoLen})");
+
+            throw new InvalidDataException(
+                string.Format(
+                    CultureInfo.InvariantCulture,
+                    "Unsupported info header size ({0})",
+                    infoLen));
         }
 
         internal static (ushort width, ushort height) GetJpegSize(BinaryReader reader)
@@ -209,19 +209,19 @@ namespace ImageSize
                 reader.ReadBytes(frameLength - 2);
             } while (reader.ReadByte() == 0xff);
 
-            throw new Exception("No size markers found in the JPG");
+            throw new InvalidDataException("No size markers found in the JPG");
         }
 
         internal static ushort ReadBigEndianUInt16(this BinaryReader reader)
         {
             byte[] buf = reader.ReadBytes(2);
-            return (ushort)((buf[0]<<8) | buf[1]);
+            return (ushort)((buf[0] << 8) | buf[1]);
         }
 
         internal static int ReadBigEndianInt32(this BinaryReader reader)
         {
             byte[] buf = reader.ReadBytes(4);
-            return ((buf[0]<<24) | (buf[1]<<16) | (buf[2]<<8) | buf[3]);
+            return (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
         }
     }
 }
